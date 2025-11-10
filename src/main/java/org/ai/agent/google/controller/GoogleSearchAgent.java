@@ -7,6 +7,7 @@ import com.google.adk.sessions.Session;
 import com.google.genai.types.Content;
 import com.google.genai.types.Part;
 import io.reactivex.rxjava3.core.Flowable;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,13 +20,10 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/google")
 @Slf4j
+@RequiredArgsConstructor
 public class GoogleSearchAgent {
 
     private final InMemoryRunner runner;
-
-    public GoogleSearchAgent(InMemoryRunner runner) {
-        this.runner = runner;
-    }
 
     /**
      * Execute an agent query within a conversational session.
@@ -79,11 +77,11 @@ public class GoogleSearchAgent {
                     userId, sessionKey, ex.getMessage());
         }
         // Create new session with stable external key.
-        Session created = runner.sessionService()
+        Session session = runner.sessionService()
                 .createSession(runner.appName(), userId)
                 .blockingGet();
-        log.info("Created new session. userId={}, sessionId={}", created.userId(), created.id());
-        return created;
+        log.info("Created new session. userId={}, sessionId={}", session.userId(), session.id());
+        return session;
     }
 
     /**
