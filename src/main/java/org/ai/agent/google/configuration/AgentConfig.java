@@ -3,6 +3,7 @@ package org.ai.agent.google.configuration;
 import com.google.adk.agents.LlmAgent;
 import com.google.adk.runner.InMemoryRunner;
 import com.google.adk.tools.GoogleSearchTool;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -11,25 +12,54 @@ import java.util.List;
 @Configuration
 public class AgentConfig {
 
-    @Bean
-    public LlmAgent rootAgent() {
-        // Ensure GOOGLE_API_KEY is set as an environment variable
-        if (System.getenv("GOOGLE_API_KEY") == null) {
-            throw new RuntimeException("Error: GOOGLE_API_KEY environment variable is not set.");
-        }
+    // Override in `application.properties` (e.g. agent.model=gemini-2.5-flash)
+    @Value("${agent.model:gemini-2.5-flash-lite}")
+    private String model;
 
+    @Value("${agent.name:helpful_assistant}")
+    private String agentName;
+
+    @Value("${agent.description:A simple agent that can answer general questions.}")
+    private String description;
+
+    @Value("${agent.instruction:You are a helpful assistant. Use Google Search for current info or if unsure.}")
+    private String instruction;
+
+    @Bean
+    public GoogleSearchTool googleSearchTool() {
+        return new GoogleSearchTool();
+    }
+
+    /**
+     * Root LLM agent definition. Validates API key before building.
+     */
+    @Bean
+    public LlmAgent rootAgent(GoogleSearchTool googleSearchTool) {
+        ensureApiKey();
         return new LlmAgent.Builder()
-                .name("helpful_assistant")
-                .model("gemini-2.5-flash-lite")
-                .description("A simple agent that can answer general questions.")
-                .instruction("You are a helpful assistant. Use Google Search for current info or if unsure.")
-                .tools(List.of(new GoogleSearchTool()))
+                .name(agentName)
+                .model(model)
+                .description(description)
+                .instruction(instruction)
+                .tools(List.of(googleSearchTool))
                 .build();
     }
 
+    /**
+     * Runner that hosts the agent in memory.
+     */
     @Bean
-    public InMemoryRunner inMemoryRunner(LlmAgent agent) {
-        // Create the runner using the agent bean
-        return new InMemoryRunner(agent);
+    public InMemoryRunner inMemoryRunner(LlmAgent rootAgent) {
+        return new InMemoryRunner(rootAgent);
+    }
+
+    /**
+     * Fail fast if required environment variable is absent.
+     */
+    private void ensureApiKey() {
+        String apiKey = System.getenv("GOOGLE_API_KEY");
+        if (apiKey == null || apiKey.isBlank()) {
+            throw new IllegalStateException("Missing environment variable: GOOGLE_API_KEY");
+        }
     }
 }
